@@ -40,7 +40,7 @@ def save_tree_structure(start_path, exclude_entries=None, output_file='README.md
 		'.txt': '📄',
 		'.md': '📝',
 		'.html': '🌐',
-		'.css': '🎨',
+		'.css': '🎨', 
 		'.jpg': '🖼️',
 		'.jpeg': '🖼️',
 		'.png': '🖼️',

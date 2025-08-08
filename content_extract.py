@@ -47,7 +47,7 @@ def collect_all_files_content(start_path, exclude_entries=None, output_file='all
 
     print(f"All file contents collected into '{output_file}'.")
 
-
+ 
 if __name__ == '__main__':
     current_directory = os.getcwd()
     collect_all_files_content(current_directory)

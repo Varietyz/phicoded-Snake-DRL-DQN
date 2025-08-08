@@ -399,3 +399,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+update_readme.py
+content_extract.py
+all_contents.txt
