@@ -1,0 +1,53 @@
+# (φ) phicode_engine/(φ)/core/snake.φ
+← collections ⇒ deque
+
+
+ℂ Snake:
+    ƒ __init__(self, init_pos, init_length=3):
+        self.body = deque([init_pos])
+        self.direction = (1, 0)
+        ∀ _ ∈ range(1, init_length):
+            self.body.appendleft((self.body[0][0] - 1, self.body[0][1]))
+        self.grow_next = ⊥
+
+    ƒ move(self):
+        head_x, head_y = self.body[-1]
+        dx, dy = self.direction
+        new_head = (head_x + dx, head_y + dy)
+        self.body.append(new_head)
+        ¿ ¬ self.grow_next:
+            self.body.popleft()
+        ⋄:
+            self.grow_next = ⊥
+
+    ƒ grow(self):
+        self.grow_next = ✓
+
+    ƒ set_direction(self, new_dir):
+        ¿ (new_dir[0] * -1, new_dir[1] * -1) == self.direction:
+            ⟲
+
+        head_x, head_y = self.body[-1]
+        dx, dy = new_dir
+        new_head = (head_x + dx, head_y + dy)
+
+        tail = self.body[0]
+        ¿ self.grow_next ∧ new_head == tail:
+            ⟲
+
+        self.direction = new_dir
+
+    ƒ hits_self(self):
+        body_list = list(self.body)
+        ¿ ¬ self.grow_next:
+            body_list = body_list[1:]
+        has_collision = len(body_list) != len(set(body_list))
+        ⟲ has_collision
+
+    ƒ get_previous_head(self):
+        ¿ len(self.body) < 2:
+            ⟲ self.body[-1]
+        ⟲ self.body[-2]
+
+    ƒ get_head(self):
+        ⟲ self.body[-1]

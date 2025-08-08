@@ -1,0 +1,38 @@
+# (φ) phicode_engine/(φ)/ai/connector.φ
+ℂ Connector:
+    ACTION_TO_DIRECTION = {
+        0: (1, 0),
+        1: (-1, 0),
+        2: (0, 1),
+        3: (0, -1)
+    }
+
+    ƒ __init__(self, game_controller, agent_plugin):
+        self.game_controller = game_controller
+        self.agent = agent_plugin
+
+    ƒ get_game_state(self):
+        snake_body = list(self.game_controller.snake.body)
+        food_pos = self.game_controller.food
+        bonus_food_pos = self.game_controller.bonus_manager.bonus_food
+
+        ⟲ {
+            "snake_body": snake_body,
+            "food_pos": food_pos,
+            "bonus_food_pos": bonus_food_pos,
+            "score": self.game_controller.score.current_score,
+        }
+
+    ƒ request_action(self):
+        action = self.agent.act(self.game_controller)
+        ⟲ action
+
+    ƒ apply_action(self, action):
+        ¿ action ≡ ¬ Ø:
+            direction = self.ACTION_TO_DIRECTION.get(action)
+            ¿ direction ≡ ¬ Ø:
+                self.game_controller.snake.set_direction(direction)
+
+    ƒ update(self):
+        action = self.request_action()
+        self.apply_action(action)

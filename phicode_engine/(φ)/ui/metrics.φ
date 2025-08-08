@@ -1,0 +1,27 @@
+# (φ) phicode_engine/(φ)/ui/metrics.φ
+
+← dataclasses ⇒ dataclass
+← typing ⇒ Optional, Tuple
+
+@dataclass
+ℂ RenderMetrics:
+    current_score: int
+    high_score: int
+    bonus_food_pos: Optional[Tuple[int, int]]
+    bonus_food_visible: bool
+    current_speed: int
+    snake_length: int
+    games_played: int
+    time_playing: Optional[float] = Ø
+
+ƒ extract_render_metrics(controller) -> RenderMetrics:
+    ⟲ RenderMetrics(
+        current_score=controller.score.current_score,
+        high_score=controller.score.high_score,
+        bonus_food_pos=controller.bonus_manager.bonus_food,
+        bonus_food_visible=controller.bonus_manager.bonus_visible,
+        current_speed=controller.current_speed,
+        snake_length=len(controller.snake.body),
+        games_played=controller.games_played,
+        time_playing=getattr(controller, "time_playing", Ø),
+    )

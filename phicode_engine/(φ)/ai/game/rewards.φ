@@ -1,0 +1,61 @@
+← config ⇒ GRID_WIDTH, GRID_HEIGHT
+REWARDS_CONFIG = {
+    "ate_food": 250.0,
+    "ate_bonus_food": 1000.0,
+    "distance_to_food_delta_positive": 15.0,
+    "distance_to_food_delta_negative": 30.0,
+    "survival": 0.8,
+    "danger_penalty_per_unit": 3.0,
+    "danger_avoidance_bonus": 15.0,
+    "wall_proximity_weight": 1.5,
+}
+
+ƒ calculate_reward(prev_state, action, current_state, info=Ø) -> float:
+    score = info.get("score", 0) ¿ info ⋄ 0
+    reward = 0.0
+    
+    ¿ info ∧ info.get("ate_food", ⊥):
+        reward += REWARDS_CONFIG["ate_food"]
+    ¿ info ∧ info.get("ate_bonus_food", ⊥):
+        reward += REWARDS_CONFIG["ate_bonus_food"]
+        
+    ¿ info ∧ "distance_to_food_delta" ∈ info:
+        delta = info["distance_to_food_delta"]
+        ¿ delta > 0:
+            reward += REWARDS_CONFIG["distance_to_food_delta_positive"] * delta
+        ⋄:
+            reward += REWARDS_CONFIG["distance_to_food_delta_negative"] * delta
+            
+    reward += score * reward
+    
+    reward += REWARDS_CONFIG["survival"]
+    
+    ¿ prev_state ≡ ¬ Ø:
+        prev_dangers = prev_state[-4:]
+        current_dangers = current_state[-4:]
+        
+        action_danger = current_dangers[action]
+        reward -= REWARDS_CONFIG["danger_penalty_per_unit"] * action_danger
+        
+        ¿ any(d > 0.5 ∀ d ∈ prev_dangers) ∧ all(d < 0.5 ∀ d ∈ current_dangers):
+            reward += REWARDS_CONFIG["danger_avoidance_bonus"]
+    
+    head_x, head_y = current_state[100], current_state[101]
+    grid_width, grid_height = GRID_WIDTH, GRID_HEIGHT
+
+    
+    head_tile_x = int(head_x * grid_width)
+    head_tile_y = int(head_y * grid_height)
+
+    tiles_from_wall = min(
+        head_tile_x,
+        grid_width - 1 - head_tile_x,
+        head_tile_y,
+        grid_height - 1 - head_tile_y
+    )
+
+    normalized_wall_proximity = tiles_from_wall / max(grid_width, grid_height)
+
+    reward += REWARDS_CONFIG["wall_proximity_weight"] * normalized_wall_proximity
+
+    ⟲ reward

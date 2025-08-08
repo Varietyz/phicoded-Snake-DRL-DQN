@@ -1,0 +1,24 @@
+# (φ) phicode_engine/(φ)/core/food.φ
+⇒ random
+
+ƒ spawn_food(snake_body, grid_width, grid_height):
+    ↻ ✓:
+        pos = (
+            random.randint(0, grid_width - 1),
+            random.randint(0, grid_height - 1)
+        )
+        ¿ pos ¬ ∈ snake_body:
+            ⟲ pos
+
+ƒ should_spawn_bonus(chance):
+    ⟲ random.random() < chance
+
+ℂ Food:
+    ƒ __init__(self, grid_width, grid_height):
+        self.grid_width = grid_width
+        self.grid_height = grid_height
+        self.position = (0, 0)
+
+    ƒ spawn(self, snake_bodies):
+        flattened = [segment ∀ body ∈ snake_bodies ∀ segment ∈ body]
+        self.position = spawn_food(flattened, self.grid_width, self.grid_height)

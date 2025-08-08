@@ -1,0 +1,229 @@
+# (φ) phicode_engine/(φ)/ai/dqn_agent.φ
+⇒ numpy ↦ np
+⇒ random
+← collections ⇒ deque
+⇒ json
+⇒ os
+← pathlib ⇒ Path
+← typing ⇒ Dict, Any, Optional
+← ai.simple_nn ⇒ SimpleNN, Activation, Optimizer
+← common.utils ⇒ clean_input
+⇒ warnings
+
+ℂ DQNAgent:
+    ƒ __init__(
+        self,
+        state_size: int,
+        action_size: int,
+        learning_rate: float = 0.002,
+        gamma: float = 0.99,
+        epsilon_start: float = 0.9,
+        epsilon_min: float = 0.1,
+        epsilon_decay: float = 0.999,
+        memory_size: int = 15000,
+        batch_size: int = 64,
+        target_update_freq: int = 1000,
+        model_path: Optional[str] = Ø,
+        seed: Optional[int] = Ø
+    ):
+        ¿ seed ≡ ¬ Ø:
+            np.random.seed(seed)
+            random.seed(seed)
+
+        self.state_size = state_size
+        self.action_size = action_size
+        self.gamma = gamma
+        self.epsilon = epsilon_start
+        self.epsilon_min = epsilon_min
+        self.epsilon_decay = epsilon_decay
+        self.batch_size = batch_size
+        self.target_update_freq = target_update_freq
+        self.train_step_counter = 0
+
+        self.memory = deque(maxlen=memory_size)
+
+        self.model_path = Path(model_path) ¿ model_path ⋄ Path(
+            os.path.join(os.path.dirname(__file__), "..", "data", "dqn_model")
+        )
+        self.model_path.parent.mkdir(parents=✓, exist_ok=✓)
+
+        self.q_network = SimpleNN(
+            input_size=state_size,
+            hidden_sizes=[128, 128],
+            output_size=action_size,
+            learning_rate=learning_rate,
+            activation=Activation.RELU,
+            output_activation=Activation.LINEAR,
+            optimizer=Optimizer.ADAM,
+            l2_reg=0.0001,
+            clip_value=10.0,
+            seed=seed
+        )
+
+        self.target_network = SimpleNN(
+            input_size=state_size,
+            hidden_sizes=[128, 128],
+            output_size=action_size,
+            learning_rate=learning_rate,
+            activation=Activation.RELU,
+            output_activation=Activation.LINEAR,
+            optimizer=Optimizer.ADAM,
+            l2_reg=0.0001,
+            clip_value=10.0,
+            seed=seed
+        )
+
+        self.update_target_network(full_update=✓)
+        self.load_model()
+
+    ƒ update_target_network(self, full_update: bool = ⊥) -> Ø:
+        """Update target network either fully ∨ partially (polyak averaging)"""
+        ¿ full_update:
+            self.target_network.load_state_dict(self.q_network.get_state_dict())
+        ⋄:
+            tau = 0.001
+            q_state = self.q_network.get_state_dict()
+            target_state = self.target_network.get_state_dict()
+
+            ∀ i ∈ range(len(target_state['layers'])):
+                target_state['layers'][i]['W'] = (
+                    tau * q_state['layers'][i]['W'] +
+                    (1 - tau) * target_state['layers'][i]['W']
+                )
+                target_state['layers'][i]['b'] = (
+                    tau * q_state['layers'][i]['b'] +
+                    (1 - tau) * target_state['layers'][i]['b']
+                )
+
+            self.target_network.load_state_dict(target_state)
+
+    ƒ act(self, state: np.ndarray, eval_mode: bool = ⊥) -> int:
+        """Epsilon-greedy action selection"""
+        ¿ ¬ eval_mode ∧ np.random.random() <= self.epsilon:
+            ⟲ random.randrange(self.action_size)
+        state = clean_input(state)
+        q_values = self.q_network.predict(state)
+        ⟲ int(np.argmax(q_values))
+
+
+    ƒ remember(
+        self,
+        state: np.ndarray,
+        action: int,
+        reward: float,
+        next_state: np.ndarray,
+        done: bool
+    ) -> Ø:
+        """Store experience ∈ replay buffer ∥ preprocessing"""
+        state = clean_input(state)
+        next_state = clean_input(next_state)
+        self.memory.append((state, action, reward, next_state, done))
+
+    ƒ replay(self) -> Optional[float]:
+        """Train on a batch ∨ ⟲ diagnostics ¿ ¬ enough memory"""
+        ¿ len(self.memory) < self.batch_size:
+            ¿ len(self.memory) >= 8:
+                sample = random.sample(self.memory, min(16, len(self.memory)))
+                states = np.vstack([clean_input(s[0]) ∀ s ∈ sample])
+                q_vals = self.q_network.forward(states, training=⊥)
+                ⟲ float(np.mean(q_vals))
+            ⟲ Ø
+
+        batch = random.sample(self.memory, self.batch_size)
+        states, actions, rewards, next_states, dones = zip(*batch)
+
+        states = np.vstack(states)
+        actions = np.array(actions)
+        rewards = np.array(rewards, dtype=np.float32)
+        next_states = np.vstack(next_states)
+        dones = np.array(dones)
+
+        current_q = self.q_network.forward(states, training=✓)
+        next_q = self.target_network.forward(next_states, training=⊥)
+        target_q = current_q.copy()
+
+        best_actions = np.argmax(self.q_network.forward(next_states, training=⊥), axis=1)
+        target_q[np.arange(self.batch_size), actions] = rewards + self.gamma * (
+            next_q[np.arange(self.batch_size), best_actions] * (1 - dones)
+        )
+
+        loss = self.q_network.train(states, target_q)
+
+        ¿ self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+        self.train_step_counter += 1
+        ¿ self.train_step_counter % self.target_update_freq == 0:
+            self.update_target_network()
+
+        ⟲ float(loss)
+
+    ƒ save_model(self) -> Ø:
+        """Save model weights ∧ hyperparameters (excluding target_network)"""
+        ∴:
+            self.model_path.parent.mkdir(parents=✓, exist_ok=✓)
+
+            self.q_network.save(self.model_path.with_suffix('.json'))
+
+            agent_state = {
+                'epsilon': self.epsilon,
+                'train_step_counter': self.train_step_counter,
+                'hyperparameters': {
+                    'state_size': self.state_size,
+                    'action_size': self.action_size,
+                    'gamma': self.gamma,
+                    'epsilon_start': self.epsilon,
+                    'epsilon_min': self.epsilon_min,
+                    'epsilon_decay': self.epsilon_decay,
+                    'batch_size': self.batch_size,
+                    'target_update_freq': self.target_update_freq
+                }
+            }
+
+            ∥ open(self.model_path.with_suffix('.agent'), 'w') ↦ f:
+                json.dump(agent_state, f)
+
+        ⛒ Exception ↦ e:
+            π(f"Error saving model: {str(e)}")
+            ↑
+
+    ƒ load_model(self) -> Ø:
+        """Load Q-network weights ∧ hyperparameters (recomputes target_network)"""
+        ∴:
+            model_file = self.model_path.with_suffix('.json')
+            agent_file = self.model_path.with_suffix('.agent')
+
+            ¿ model_file.exists():
+                self.q_network = SimpleNN.load(model_file)
+
+                ¿ agent_file.exists():
+                    ∥ open(agent_file, 'r') ↦ f:
+                        agent_state = json.load(f)
+
+                    self.epsilon = agent_state.get('epsilon', self.epsilon)
+                    self.train_step_counter = agent_state.get('train_step_counter', 0)
+
+                    ¿ 'hyperparameters' ∈ agent_state:
+                        hp = agent_state['hyperparameters']
+                        self.gamma = hp.get('gamma', self.gamma)
+                        self.epsilon_min = hp.get('epsilon_min', self.epsilon_min)
+                        self.epsilon_decay = hp.get('epsilon_decay', self.epsilon_decay)
+                        self.batch_size = hp.get('batch_size', self.batch_size)
+                        self.target_update_freq = hp.get('target_update_freq', self.target_update_freq)
+
+                self.update_target_network(full_update=✓)
+                π(f"Model loaded successfully. Epsilon: {self.epsilon:.3f}, Steps: {self.train_step_counter}")
+
+        ⛒ Exception ↦ e:
+            warnings.warn(f"[DQNAgent] Model load failed. Starting fresh. Error: {str(e)}")
+
+    ƒ get_config(self) -> Dict[str, Any]:
+        """Return agent configuration ∀ monitoring"""
+        ⟲ {
+            'epsilon': self.epsilon,
+            'memory_size': len(self.memory),
+            'train_steps': self.train_step_counter,
+            'batch_size': self.batch_size,
+            'target_update_freq': self.target_update_freq,
+            'gamma': self.gamma
+        }

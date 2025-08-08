@@ -1,0 +1,42 @@
+# (φ) phicode_engine/(φ)/ui/bonus_manager.φ
+← config ⇒ (GRID_WIDTH, GRID_HEIGHT, BONUS_FOOD_DURATION, BONUS_FOOD_FLICKER_START)
+
+
+ℂ BonusFoodManager:
+    ƒ __init__(self, root, snake_body, food, spawn_func):
+        self.root = root
+        self.snake_body = snake_body
+        self.food = food
+        self.spawn_food = spawn_func
+
+        self.bonus_food = Ø
+        self.bonus_visible = ✓
+        self.bonus_timeout_id = Ø
+        self.bonus_flicker_id = Ø
+
+    ƒ spawn_bonus_food(self):
+        self.bonus_food = self.spawn_food(list(self.snake_body) + [self.food], GRID_WIDTH, GRID_HEIGHT)
+        self.bonus_visible = ✓
+        self.bonus_timeout_id = self.root.after(BONUS_FOOD_DURATION, self.remove_bonus_food)
+
+        flicker_delay = BONUS_FOOD_DURATION - BONUS_FOOD_FLICKER_START
+        self.root.after(flicker_delay, self._start_bonus_flicker)
+
+    ƒ _start_bonus_flicker(self):
+        ¿ self.bonus_food:
+            self._toggle_bonus_visibility()
+
+    ƒ _toggle_bonus_visibility(self):
+        ¿ self.bonus_food:
+            self.bonus_visible = ¬ self.bonus_visible
+            self.bonus_flicker_id = self.root.after(200, self._toggle_bonus_visibility)
+
+    ƒ remove_bonus_food(self):
+        self.bonus_food = Ø
+        self.bonus_visible = ✓
+        ¿ self.bonus_timeout_id:
+            self.root.after_cancel(self.bonus_timeout_id)
+            self.bonus_timeout_id = Ø
+        ¿ self.bonus_flicker_id:
+            self.root.after_cancel(self.bonus_flicker_id)
+            self.bonus_flicker_id = Ø

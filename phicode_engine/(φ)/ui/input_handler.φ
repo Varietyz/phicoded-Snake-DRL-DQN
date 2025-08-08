@@ -1,0 +1,17 @@
+# (φ) phicode_engine/(φ)/ui/input_handler.φ
+
+ℂ InputHandler:
+    ƒ __init__(self, root, snake):
+        self.root = root
+        self.snake = snake
+        self._bind_keys()
+
+    ƒ _bind_keys(self):
+        self.root.bind("<Up>", λ e: self._on_key((0, -1)))
+        self.root.bind("<Down>", λ e: self._on_key((0, 1)))
+        self.root.bind("<Left>", λ e: self._on_key((-1, 0)))
+        self.root.bind("<Right>", λ e: self._on_key((1, 0)))
+        self.root.focus_set()
+
+    ƒ _on_key(self, direction):
+        self.snake.set_direction(direction)

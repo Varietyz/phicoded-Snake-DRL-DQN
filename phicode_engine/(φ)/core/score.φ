@@ -1,0 +1,41 @@
+# (φ) phicode_engine/(φ)/core/score.φ
+⇒ json
+⇒ os
+
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+SCORE_FILE = os.path.join(DATA_DIR, "score.json")
+
+ℂ ScoreManager:
+    ƒ __init__(self):
+        self.current_score = 0
+        self.high_score = 0
+        self._ensure_data_dir()
+        self._load()
+
+    ƒ reset(self):
+        self.current_score = 0
+
+    ƒ increment(self, amount=1):
+        self.current_score += amount
+        ¿ self.current_score > self.high_score:
+            self.high_score = self.current_score
+            self._save()
+
+    ƒ _load(self):
+        ∴:
+            ∥ open(SCORE_FILE, "r", encoding="utf-8") ↦ f:
+                data = json.load(f)
+                self.high_score = data.get("high_score", 0)
+        ⛒ (FileNotFoundError, json.JSONDecodeError):
+            self.high_score = 0
+
+    ƒ _save(self):
+        ∴:
+            ∥ open(SCORE_FILE, "w", encoding="utf-8") ↦ f:
+                json.dump({"high_score": self.high_score}, f, indent=2)
+        ⛒ Exception ↦ e:
+            π(f"⚠ Error saving score: {e}")
+
+    ƒ _ensure_data_dir(self):
+        os.makedirs(DATA_DIR, exist_ok=✓)

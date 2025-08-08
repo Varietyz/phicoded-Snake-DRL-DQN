@@ -1,0 +1,101 @@
+# (φ) phicode_engine/(φ)/ai/agent_plugin.φ
+⇒ numpy ↦ np
+← ai.dqn_agent ⇒ DQNAgent
+← ai.game.enhancements ⇒ apply_enhancement
+← ai.game.rewards ⇒ calculate_reward
+← ai.game.penalties ⇒ apply_penalty
+← config ⇒ STOP_TRAINING, GRID_WIDTH, GRID_HEIGHT
+
+ℂ AgentPlugin:
+    ƒ __init__(self, state_size: int, action_size: int):
+        self.agent = DQNAgent(state_size=state_size, action_size=action_size)
+        self.last_state = Ø
+        self.last_action = Ø
+
+    ƒ preprocess_state(self, game_controller) -> np.ndarray:
+        snake = game_controller.snake.body
+        head = snake[-1]
+        food = game_controller.food
+        bonus_food = game_controller.bonus_manager.bonus_food ∨ (-1, -1)
+        grid_width = GRID_WIDTH
+        grid_height = GRID_HEIGHT
+
+        state = []
+
+        ∀ segment ∈ snake:
+            state.extend(segment)
+        max_snake_length = 50
+        ¿ len(snake) < max_snake_length:
+            state.extend([-1, -1] * (max_snake_length - len(snake)))
+
+        state.extend([
+            head[0] / grid_width,
+            head[1] / grid_height,
+            (grid_width - head[0]) / grid_width,
+            (grid_height - head[1]) / grid_height
+        ])
+
+        direction = game_controller.snake.direction
+        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        state.extend([1 ¿ direction == d ⋄ 0 ∀ d ∈ directions])
+
+        state.extend([
+            (food[0] - head[0]) / grid_width,
+            (food[1] - head[1]) / grid_height
+        ])
+        ¿ bonus_food != (-1, -1):
+            state.extend([
+                (bonus_food[0] - head[0]) / grid_width,
+                (bonus_food[1] - head[1]) / grid_height
+            ])
+        ⋄:
+            state.extend([0, 0])
+
+        danger_states = []
+        ∀ dx, dy ∈ directions:
+            danger = 0
+            x, y = head[0] + dx, head[1] + dy
+
+            ¿ x < 0 ∨ x >= grid_width ∨ y < 0 ∨ y >= grid_height:
+                danger = 1
+            ⤷ (x, y) ∈ list(snake)[:-1]:
+                danger = 1
+            danger_states.append(danger)
+        state.extend(danger_states)
+
+        ⟲ np.array(state, dtype=np.float32)
+
+    ƒ act(self, game_controller) -> int:
+        state = self.preprocess_state(game_controller)
+        action = self.agent.act(state, eval_mode=STOP_TRAINING)
+        self.last_state = state
+        self.last_action = action
+        ⟲ action
+
+    ƒ remember_and_train(self, game_controller, game_info, done: bool):
+        next_state = self.preprocess_state(game_controller)
+
+        reward = calculate_reward(self.last_state, self.last_action, next_state, game_info)
+
+        reward = apply_penalty(reward, game_info)
+
+        ¿ "enhancement_type" ∈ game_info:
+            self.agent.internal_state = apply_enhancement(
+                self.agent.internal_state, game_info["enhancement_type"]
+            )
+
+        ¿ self.last_state ≡ ¬ Ø ∧ self.last_action ≡ ¬ Ø:
+            self.agent.remember(self.last_state, self.last_action, reward, next_state, done)
+        π(f"Reward: {reward:.2f}, Epsilon: {self.agent.epsilon:.3f}, Memory: {len(self.agent.memory)}")
+
+        self.train()
+
+    ƒ train(self):
+        loss = self.agent.replay()
+        ⟲ loss
+
+    ƒ save(self):
+        self.agent.save_model()
+
+    ƒ load(self):
+        self.agent.load_model()

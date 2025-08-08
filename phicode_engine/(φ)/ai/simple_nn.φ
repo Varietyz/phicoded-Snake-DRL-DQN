@@ -1,0 +1,365 @@
+# (φ) phicode_engine/(φ)/ai/simple_nn.φ
+⇒ numpy ↦ np
+⇒ json
+← pathlib ⇒ Path
+← typing ⇒ Union, List, Optional
+← enum ⇒ Enum
+
+ℂ Activation(Enum):
+    RELU = 'relu'
+    TANH = 'tanh'
+    SIGMOID = 'sigmoid'
+    LINEAR = 'linear'
+
+ℂ Optimizer(Enum):
+    SGD = 'sgd'
+    ADAM = 'adam'
+    RMSPROP = 'rmsprop'
+
+ℂ SimpleNN:
+    ƒ __init__(
+        self,
+        input_size: int,
+        hidden_sizes: List[int] = [64],
+        output_size: int = 1,
+        learning_rate: float = 0.001,
+        activation: Activation = Activation.RELU,
+        output_activation: Activation = Activation.LINEAR,
+        optimizer: Optimizer = Optimizer.ADAM,
+        l2_reg: float = 0.001,
+        dropout_rate: float = 0.0,
+        batch_norm: bool = ⊥,
+        clip_value: float = 5.0,
+        seed: Optional[int] = Ø
+    ):
+        ¿ seed ≡ ¬ Ø:
+            np.random.seed(seed)
+
+        self.architecture = {
+            'input_size': input_size,
+            'hidden_sizes': hidden_sizes,
+            'output_size': output_size,
+            'learning_rate': learning_rate,
+            'activation': activation.value,
+            'output_activation': output_activation.value,
+            'optimizer': optimizer.value,
+            'l2_reg': l2_reg,
+            'dropout_rate': dropout_rate,
+            'batch_norm': batch_norm,
+            'clip_value': clip_value
+        }
+
+        self.layers = []
+        layer_sizes = [input_size] + hidden_sizes + [output_size]
+
+        ∀ i ∈ range(len(layer_sizes)-1):
+            ¿ activation == Activation.RELU:
+                std = np.sqrt(2.0 / layer_sizes[i])
+            ⋄:
+                std = np.sqrt(1.0 / layer_sizes[i])
+
+            weights = np.random.randn(layer_sizes[i], layer_sizes[i+1]) * std
+            biases = np.zeros((1, layer_sizes[i+1]))
+            self.layers.append({'W': weights, 'b': biases})
+
+        self.lr = learning_rate
+        self.l2_reg = l2_reg
+        self.dropout_rate = dropout_rate
+        self.batch_norm = batch_norm
+        self.clip_value = clip_value
+        self.activation = activation
+        self.output_activation = output_activation
+        self.optimizer = optimizer
+
+        ¿ optimizer == Optimizer.ADAM:
+            self.t = 0
+            self.m = [{'W': np.zeros_like(layer['W']), 'b': np.zeros_like(layer['b'])}
+                     ∀ layer ∈ self.layers]
+            self.v = [{'W': np.zeros_like(layer['W']), 'b': np.zeros_like(layer['b'])}
+                     ∀ layer ∈ self.layers]
+            self.beta1 = 0.9
+            self.beta2 = 0.999
+            self.eps = 1e-8
+
+        ¿ batch_norm:
+            self.gamma = [np.ones((1, size)) ∀ size ∈ layer_sizes[1:-1]]
+            self.beta = [np.zeros((1, size)) ∀ size ∈ layer_sizes[1:-1]]
+            self.running_mean = [np.zeros((1, size)) ∀ size ∈ layer_sizes[1:-1]]
+            self.running_var = [np.ones((1, size)) ∀ size ∈ layer_sizes[1:-1]]
+            self.bn_eps = 1e-5
+            self.momentum = 0.9
+
+    ƒ _activate(self, x: np.ndarray, activation: Activation) -> np.ndarray:
+        """Apply activation function"""
+        ¿ activation == Activation.RELU:
+            ⟲ np.maximum(0, x)
+        ⤷ activation == Activation.TANH:
+            ⟲ np.tanh(x)
+        ⤷ activation == Activation.SIGMOID:
+            ⟲ 1 / (1 + np.exp(-x))
+        ⤷ activation == Activation.LINEAR:
+            ⟲ x
+        ⋄:
+            ↑ ValueError(f"Unknown activation: {activation}")
+
+    ƒ _activate_derivative(self, x: np.ndarray, activation: Activation) -> np.ndarray:
+        """Derivative of activation function"""
+        ¿ activation == Activation.RELU:
+            ⟲ (x > 0).astype(float)
+        ⤷ activation == Activation.TANH:
+            ⟲ 1 - np.tanh(x)**2
+        ⤷ activation == Activation.SIGMOID:
+            s = 1 / (1 + np.exp(-x))
+            ⟲ s * (1 - s)
+        ⤷ activation == Activation.LINEAR:
+            ⟲ np.ones_like(x)
+        ⋄:
+            ↑ ValueError(f"Unknown activation: {activation}")
+
+    ƒ _apply_dropout(self, a: np.ndarray, layer_index: int) -> np.ndarray:
+        ¿ self.dropout_rate <= 0 ∨ layer_index >= len(self.layers) - 1:
+            ⟲ a
+        mask = self.cache.get(f'D{layer_index+1}', np.ones_like(a))
+        ⟲ a * mask / (1 - self.dropout_rate)
+
+    ƒ _clean_input(self, data):
+        ¿ ¬ isinstance(data, np.ndarray):
+            data = np.array(data, dtype=np.float32)
+        ⟲ data
+
+    ƒ forward(self, X: np.ndarray, training: bool = ⊥) -> np.ndarray:
+        """Forward ⋯ through the network"""
+        X = self._clean_input(X)
+        self.cache = {'A0': X}
+
+        ∀ i, layer ∈ enumerate(self.layers[:-1]):
+            z = np.dot(self.cache[f'A{i}'], layer['W']) + layer['b']
+
+            ¿ self.batch_norm ∧ i < len(self.layers) - 1:
+                ¿ training:
+                    batch_mean = np.mean(z, axis=0, keepdims=✓)
+                    batch_var = np.var(z, axis=0, keepdims=✓)
+                    self.running_mean[i] = self.momentum * self.running_mean[i] + (1 - self.momentum) * batch_mean
+                    self.running_var[i] = self.momentum * self.running_var[i] + (1 - self.momentum) * batch_var
+                ⋄:
+                    batch_mean = self.running_mean[i]
+                    batch_var = self.running_var[i]
+
+                z = (z - batch_mean) / np.sqrt(batch_var + self.bn_eps)
+                z = self.gamma[i] * z + self.beta[i]
+
+            a = self._activate(z, self.activation)
+
+            ¿ training ∧ self.dropout_rate > 0 ∧ i < len(self.layers) - 1:
+                mask = (np.random.rand(*a.shape) > self.dropout_rate).astype(float)
+                self.cache[f'D{i+1}'] = mask
+                a = a * mask / (1 - self.dropout_rate)
+
+            self.cache[f'Z{i+1}'] = z
+            self.cache[f'A{i+1}'] = a
+
+
+        output_layer = self.layers[-1]
+        z_out = np.dot(self.cache[f'A{len(self.layers)-1}'], output_layer['W']) + output_layer['b']
+        self.cache[f'Z{len(self.layers)}'] = z_out
+        output = self._activate(z_out, self.output_activation)
+
+
+        ⟲ output
+
+    ƒ backward(self, X: np.ndarray, y: np.ndarray, output: np.ndarray) -> Ø:
+        """Modular backward ⋯"""
+        X, y, output = self._clean_input(X), self._clean_input(y), self._clean_input(output)
+        m = X.shape[0]
+        grads = [{} ∀ _ ∈ range(len(self.layers))]
+
+        dZ = self._compute_output_delta(output, y)
+        grads[-1]['W'], grads[-1]['b'] = self._gradients(dZ, self.cache[f'A{len(self.layers)-1}'], m)
+
+        ∀ i ∈ reversed(range(len(self.layers)-1)):
+            dA = np.dot(dZ, self.layers[i+1]['W'].T)
+            ¿ self.dropout_rate > 0 ∧ i < len(self.layers) - 1:
+                dA *= self.cache.get(f'D{i+1}', 1.0) / (1 - self.dropout_rate)
+            dZ = dA * self._activate_derivative(self.cache[f'Z{i+1}'], self.activation)
+            dZ = np.clip(dZ, -self.clip_value, self.clip_value)
+            grads[i]['W'], grads[i]['b'] = self._gradients(dZ, self.cache[f'A{i}'], m)
+
+        self._update_weights(grads)
+
+    ƒ _compute_output_delta(self, y_pred, y_true):
+        """Return dZ ∀ output layer"""
+        ¿ self.output_activation == Activation.LINEAR:
+            ⟲ np.clip(y_pred - y_true, -self.clip_value, self.clip_value)
+        dA = y_pred - y_true
+        ⟲ dA * self._activate_derivative(self.cache[f'Z{len(self.layers)}'], self.output_activation)
+
+    ƒ _gradients(self, dZ, A_prev, m):
+        """Return gradients ∀ a single layer"""
+        dW = np.dot(A_prev.T, dZ) / m
+        db = np.sum(dZ, axis=0, keepdims=✓) / m
+        ⟲ dW, db
+
+
+    ƒ _batch_norm_backward(self, dZ, Z, batch_mean, batch_var, layer_idx):
+        """Backward ⋯ through batch normalization"""
+        std = np.sqrt(batch_var + self.bn_eps)
+        Z_centered = Z - batch_mean
+        inv_std = 1.0 / std
+
+        dstd = np.sum(dZ * Z_centered * (-1 / std**2), axis=0, keepdims=✓)
+        dmean = np.sum(dZ * (-inv_std), axis=0, keepdims=✓) + dstd * np.mean(-2 * Z_centered, axis=0, keepdims=✓)
+
+        dZ = dZ * inv_std + dstd * 2 * Z_centered / Z.shape[0] + dmean / Z.shape[0]
+        ⟲ dZ
+
+    ƒ _update_weights(self, grads):
+        """Update weights using selected optimizer"""
+        ∀ i, (layer, grad) ∈ enumerate(zip(self.layers, grads)):
+            grad['W'] += self.l2_reg * layer['W']
+
+            ¿ self.optimizer == Optimizer.SGD:
+                layer['W'] -= self.lr * grad['W']
+                layer['b'] -= self.lr * grad['b']
+            ⤷ self.optimizer == Optimizer.ADAM:
+                self.t += 1
+                self.m[i]['W'] = self.beta1 * self.m[i]['W'] + (1 - self.beta1) * grad['W']
+                self.m[i]['b'] = self.beta1 * self.m[i]['b'] + (1 - self.beta1) * grad['b']
+
+                self.v[i]['W'] = self.beta2 * self.v[i]['W'] + (1 - self.beta2) * (grad['W']**2)
+                self.v[i]['b'] = self.beta2 * self.v[i]['b'] + (1 - self.beta2) * (grad['b']**2)
+
+                m_hat_W = self.m[i]['W'] / (1 - self.beta1**self.t)
+                m_hat_b = self.m[i]['b'] / (1 - self.beta1**self.t)
+                v_hat_W = self.v[i]['W'] / (1 - self.beta2**self.t)
+                v_hat_b = self.v[i]['b'] / (1 - self.beta2**self.t)
+
+                layer['W'] -= self.lr * m_hat_W / (np.sqrt(v_hat_W) + self.eps)
+                layer['b'] -= self.lr * m_hat_b / (np.sqrt(v_hat_b) + self.eps)
+
+    ƒ save(self, filepath: Union[str, Path]) -> Ø:
+        """Save model to file"""
+        model_data = {
+            'architecture': self.architecture,
+            'weights': [{'W': layer['W'].tolist(), 'b': layer['b'].tolist()}
+                        ∀ layer ∈ self.layers],
+            'optimizer_state': Ø
+        }
+
+        ¿ self.optimizer == Optimizer.ADAM:
+            model_data['optimizer_state'] = {
+                't': self.t,
+                'm': [{'W': m['W'].tolist(), 'b': m['b'].tolist()} ∀ m ∈ self.m],
+                'v': [{'W': v['W'].tolist(), 'b': v['b'].tolist()} ∀ v ∈ self.v]
+            }
+
+        ¿ self.batch_norm:
+            model_data['batch_norm'] = {
+                'gamma': [g.tolist() ∀ g ∈ self.gamma],
+                'beta': [b.tolist() ∀ b ∈ self.beta],
+                'running_mean': [rm.tolist() ∀ rm ∈ self.running_mean],
+                'running_var': [rv.tolist() ∀ rv ∈ self.running_var]
+            }
+
+        ∥ open(filepath, 'w') ↦ f:
+            json.dump(model_data, f)
+
+    @classmethod
+    ƒ load(cls, filepath: Union[str, Path]) -> 'SimpleNN':
+        """Load model ← file"""
+        ∥ open(filepath, 'r') ↦ f:
+            model_data = json.load(f)
+
+        arch = model_data['architecture']
+        model = cls(
+            input_size=arch['input_size'],
+            hidden_sizes=arch['hidden_sizes'],
+            output_size=arch['output_size'],
+            learning_rate=arch['learning_rate'],
+            activation=Activation(arch['activation']),
+            output_activation=Activation(arch['output_activation']),
+            optimizer=Optimizer(arch['optimizer']),
+            l2_reg=arch['l2_reg'],
+            dropout_rate=arch['dropout_rate'],
+            batch_norm=arch['batch_norm'],
+            clip_value=arch['clip_value']
+        )
+
+        ∀ i, layer ∈ enumerate(model_data['weights']):
+            model.layers[i]['W'] = np.array(layer['W'])
+            model.layers[i]['b'] = np.array(layer['b'])
+
+        ¿ model_data['optimizer_state'] ≡ ¬ Ø:
+            model.t = model_data['optimizer_state']['t']
+            ∀ i, m ∈ enumerate(model_data['optimizer_state']['m']):
+                model.m[i]['W'] = np.array(m['W'])
+                model.m[i]['b'] = np.array(m['b'])
+            ∀ i, v ∈ enumerate(model_data['optimizer_state']['v']):
+                model.v[i]['W'] = np.array(v['W'])
+                model.v[i]['b'] = np.array(v['b'])
+
+        ¿ model.batch_norm ∧ 'batch_norm' ∈ model_data:
+            model.gamma = [np.array(g) ∀ g ∈ model_data['batch_norm']['gamma']]
+            model.beta = [np.array(b) ∀ b ∈ model_data['batch_norm']['beta']]
+            model.running_mean = [np.array(rm) ∀ rm ∈ model_data['batch_norm']['running_mean']]
+            model.running_var = [np.array(rv) ∀ rv ∈ model_data['batch_norm']['running_var']]
+
+        ⟲ model
+
+    ƒ train(self, X: np.ndarray, y: np.ndarray) -> float:
+        """Train on a single batch ∧ ⟲ loss"""
+        output = self.forward(X, training=✓)
+
+        loss = np.mean((output - y) ** 2) + \
+            (self.l2_reg / (2 * X.shape[0])) * sum(np.sum(layer['W']**2) ∀ layer ∈ self.layers)
+
+        self.backward(X, y, output)
+
+        ⟲ loss
+
+
+    ƒ _compute_loss(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        """Compute loss ∥ L2 regularization"""
+        m = y_true.shape[0]
+        ¿ self.output_activation == Activation.LINEAR:
+            loss = np.mean((y_true - y_pred)**2)
+        ⤷ self.output_activation == Activation.SIGMOID:
+            loss = -np.mean(y_true * np.log(y_pred + 1e-8) + (1 - y_true) * np.log(1 - y_pred + 1e-8))
+
+        l2_loss = 0
+        ∀ layer ∈ self.layers:
+            l2_loss += np.sum(layer['W']**2)
+        loss += self.l2_reg * l2_loss / (2 * m)
+
+        ⟲ float(loss)
+
+    ƒ predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict ∥ training=⊥, guaranteeing no dropout/batchnorm mutation"""
+        ⟲ self.forward(X, training=⊥)
+
+    ƒ get_state_dict(self) -> dict:
+        """
+        Return a copy of model parameters where each layer ≡ a dict ∥ 'W' ∧ 'b' numpy arrays.
+        """
+        layers_state = []
+        ∀ layer ∈ self.layers:
+            layers_state.append({
+                'W': layer['W'].copy(),
+                'b': layer['b'].copy()
+            })
+        ⟲ {'layers': layers_state}
+
+
+    ƒ load_state_dict(self, state_dict: dict) -> Ø:
+        """
+        Load parameters ← state_dict into self.layers, assuming layers are dicts.
+        """
+        ¿ 'layers' ¬ ∈ state_dict:
+            ↑ ValueError("Invalid state_dict: missing 'layers' key")
+        ¿ len(state_dict['layers']) != len(self.layers):
+            ↑ ValueError("Mismatch ∈ number of layers")
+
+        ∀ i, layer_param ∈ enumerate(state_dict['layers']):
+            ¿ 'W' ¬ ∈ layer_param ∨ 'b' ¬ ∈ layer_param:
+                ↑ ValueError("Each layer dict must contain 'W' ∧ 'b'")
+            self.layers[i]['W'] = layer_param['W'].copy()
+            self.layers[i]['b'] = layer_param['b'].copy()

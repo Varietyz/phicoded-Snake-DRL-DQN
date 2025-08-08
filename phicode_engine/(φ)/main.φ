@@ -1,0 +1,21 @@
+# (φ) phicode_engine/(φ)/main.φ
+⇒ tkinter ↦ tk
+← config ⇒ GRID_WIDTH, GRID_HEIGHT, GRID_SIZE, COLORS
+← ui.controller ⇒ GameController
+
+π("Launching PHICODE Snake Game!")
+
+ƒ main():
+    root = tk.Tk()
+    root.title("Modular Snake Game")
+    canvas = tk.Canvas(
+        root,
+        width=GRID_WIDTH * GRID_SIZE,
+        height=GRID_HEIGHT * GRID_SIZE,
+        bg=COLORS["background"]
+    )
+    canvas.pack()
+    GameController(root, canvas)
+    root.mainloop()
+
+main()
