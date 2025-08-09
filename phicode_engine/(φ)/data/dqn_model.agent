@@ -1,1 +1,0 @@
-{"epsilon": 0.09991257268528593, "train_step_counter": 1077901, "hyperparameters": {"state_size": 116, "action_size": 4, "gamma": 0.99, "epsilon_start": 0.09991257268528593, "epsilon_min": 0.1, "epsilon_decay": 0.999, "batch_size": 64, "target_update_freq": 1000}}

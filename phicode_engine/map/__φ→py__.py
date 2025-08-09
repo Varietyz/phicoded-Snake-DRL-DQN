@@ -1,9 +1,9 @@
 import os
 import re
-from mapping import PHICODE_TO_PYTHON
+from map.mapping import PHICODE_TO_PYTHON
 
-INPUT_DIR = "phicode_engine/__manual_conversion__/converted(φ)"
-OUTPUT_DIR = "phicode_engine/__manual_conversion__/reconstructed(py)"
+INPUT_DIR = "__manual_conversion__/converted(φ)"
+OUTPUT_DIR = "__manual_conversion__/reconstructed(py)"
 
 def translate_phicode_to_python(text):
     pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in PHICODE_TO_PYTHON.keys()) + r')\b')

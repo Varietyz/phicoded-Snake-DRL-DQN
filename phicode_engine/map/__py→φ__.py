@@ -1,9 +1,9 @@
 import os
 import re
-from mapping import PYTHON_TO_PHICODE
+from map.mapping import PYTHON_TO_PHICODE
 
-INPUT_DIR = "phicode_engine/__manual_conversion__/convert"
-OUTPUT_DIR = "phicode_engine/__manual_conversion__/converted(φ)"
+INPUT_DIR = "__manual_conversion__/convert(py)"
+OUTPUT_DIR = "__manual_conversion__/converted(φ)"
 
 def remove_comments(text):
     def process_line(line):

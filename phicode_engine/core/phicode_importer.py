@@ -5,7 +5,7 @@ import importlib.util
 import sys
 import os
 
-from mapping import PHICODE_TO_PYTHON
+from map.mapping import PHICODE_TO_PYTHON
 
 class PhicodeLoader(importlib.abc.Loader):
     def __init__(self, path):

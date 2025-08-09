@@ -3,14 +3,14 @@
 import sys
 import os
 import traceback
-from phicode_importer import install_phicode_importer
+from core.phicode_importer import install_phicode_importer
 
 def main():
     # Default module to run
     module_name = "main"
 
     # φ is the default PHICODE source folder; adjust if needed
-    phicode_src_folder = 'phicode_engine/(φ)'
+    phicode_src_folder = '(φ)'
     if not os.path.isdir(phicode_src_folder):
         print(f"PHICODE source folder not found: {phicode_src_folder}", file=sys.stderr)
         sys.exit(2)
