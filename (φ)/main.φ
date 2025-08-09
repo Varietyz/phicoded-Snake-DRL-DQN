@@ -1,4 +1,4 @@
-# (φ) phicode_engine/(φ)/main.φ
+# (φ) (φ)/main.φ
 ⇒ tkinter ↦ tk
 ← config ⇒ GRID_WIDTH, GRID_HEIGHT, GRID_SIZE, COLORS
 ← ui.controller ⇒ GameController

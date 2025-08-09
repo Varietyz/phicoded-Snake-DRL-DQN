@@ -1,7 +1,11 @@
-<img src="https://banes-lab.com/assets/images/banes_lab/700px_Main_Animated.gif" width="70" />
+<img src="https://banes-lab.com/assets/images/banes_lab/700px_Main_Animated.gif" width="70" /> 
 
 # φ PHICODE Engine
-A custom Python runtime and import system that enables running code written in a symbolic, concise language called **PHICODE**. PHICODE replaces Python keywords and syntax with unique symbols, providing a compact and visually distinct alternative syntax layer on top of Python. 
+
+![Logo](logo.png) 
+
+A custom Python runtime and import system that enables running code written in a symbolic, concise language called **PHICODE**. 
+PHICODE replaces Python keywords and syntax with unique symbols, providing a compact and visually distinct alternative syntax layer on top of Python. 
 
 ---
 

@@ -1,4 +1,4 @@
-# (φ) phicode_engine/(φ)/ai/agent_plugin.φ
+# (φ) (φ)/ai/agent_plugin.φ
 ⇒ numpy ↦ np
 ← ai.dqn_agent ⇒ DQNAgent
 ← ai.game.enhancements ⇒ apply_enhancement
