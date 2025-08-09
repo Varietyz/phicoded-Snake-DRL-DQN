@@ -1,140 +1,140 @@
-<img src="https://banes-lab.com/assets/images/banes_lab/700px_Main_Animated.gif" width="70" /> 
+<img src="https://banes-lab.com/assets/images/banes_lab/700px_Main_Animated.gif" width="70" />
 
-# φ PHICODE Engine
+# 🐍 PHICODE Snake Game
 
-![Logo](logo.png) 
+![PHICODE Logo](logo.png)
 
-A custom Python runtime and import system that enables running code written in a symbolic, concise language called **PHICODE**. 
-PHICODE replaces Python keywords and syntax with unique symbols, providing a compact and visually distinct alternative syntax layer on top of Python. 
+A classic Snake game implemented in PHICODE - a symbolic Python variant using expressive Unicode glyphs. Features AI integration with deep Q-learning for autonomous gameplay.
 
----
+## 🌟 Features
 
-## Features
+- **PHICODE Implementation**: Entirely written in `.φ` files using symbolic Python syntax
+- **Dual Control Modes**:
+  - Traditional keyboard controls
+  - AI agent with deep reinforcement learning
+- **Game Enhancements**:
+  - Bonus food with time-limited rewards
+  - Progressive speed increase
+  - Score tracking with persistent high scores
+- **Modular Architecture**: Clean separation of game logic, rendering, and AI components
 
-* **Symbolic Syntax Mapping**
-  Keywords and operators are mapped to unique Unicode symbols, creating a compact and expressive symbolic language.
+## 📦 Installation
 
-* **On-the-fly PHICODE to Python Translation**
-  The engine transparently converts PHICODE source files (`*.phicode`) into Python at import time, enabling direct execution of PHICODE modules.
-
-* **Custom Importer Integration**
-  Implements a Python `sys.meta_path` finder and loader that locates and loads PHICODE files as Python modules without modification to the Python interpreter.
-
-* **Support for Modular Project Structure**
-  Allows organizing PHICODE source files as modules and packages, supporting Python-style imports across PHICODE files.
-
-* **Runtime Script for Easy Execution**
-  Provides a `runtime.py` script that sets up the import system and runs a specified PHICODE module or automatically runs `main.phicode`.
-
----
-
-## Installation
-
-Clone the repository or place the PHICODE engine files in your project directory:
-
-```
-phicode-engine/
-├── mapping.py
-├── phicode_importer.py
-├── runtime.py
-└── (φ)/                # Your PHICODE source folder
-    ├── main.phicode
-    └── ...
-```
-
----
-
-## Usage
-
-1. **Prepare Your PHICODE Source Files**
-   Write your modules using PHICODE syntax with `.phicode` extensions inside your PHICODE source folder (default folder `(φ)`).
-
-2. **Run the PHICODE Runtime**
-   From your terminal, execute:
-
+1. Install the PHICODE runtime:
    ```bash
-   python runtime.py
+   pip install phicode
    ```
 
-   This will automatically look for and run `main.phicode` in the source folder.
+2. Clone this repository:
+   ```bash
+   git clone https://github.com/Varietyz/phicoded-Snake-DRL-DQN
+   cd phicode-snake
+   ```
 
-3. **Import PHICODE Modules as Usual**
-   Inside your PHICODE files, use normal Python-style `import` statements (which map to PHICODE symbols) to organize and reuse code.
+## 🚀 Usage
 
----
+Run the game:
+```bash
+phicode (φ)/main.φ
+```
+or if running from path (φ)
+```bash
+phicode # phicode ran without arguments will run main.φ
+```
+### Control Options:
+- **Human Player**: Arrow keys (↑ ↓ ← →)
+- **AI Mode**: Automatically controlled by the DQN agent
 
-## PHICODE Syntax
+## 🧠 AI Architecture
 
-PHICODE uses symbolic replacements for Python keywords and control flow, such as:
+The game features a deep Q-network (DQN) agent with:
+- State preprocessing for snake position, food location, and danger detection
+- Experience replay buffer
+- Target network synchronization
+- Custom reward shaping:
+  ```φ
+  REWARDS_CONFIG = {
+      "ate_food": 250.0,
+      "ate_bonus_food": 1000.0,
+      "distance_to_food_delta_positive": 15.0,
+      "distance_to_food_delta_negative": 30.0,
+      "survival": 0.8,
+      "danger_penalty_per_unit": 3.0
+  }
+  ```
 
-| Python   | PHICODE |
-| -------- | ------- |
-| `def`    | `ƒ`     |
-| `if`     | `¿`     |
-| `else`   | `⋄`     |
-| `for`    | `∀`     |
-| `return` | `⟲`     |
-| `True`   | `✓`     |
-| `False`  | `⊥`     |
-| `None`   | `Ø`     |
-| `import` | `⇒`     |
+## 🖥️ Technical Highlights
 
-The full mapping is defined in `mapping.py`.
+- **PHICODE-Python Interop**: Demonstrates seamless integration between symbolic and standard Python
+- **Custom Neural Network**: Implemented in PHICODE (`simple_nn.φ`)
+- **Persistent Learning**: Saves/loads model weights between sessions
+- **Visual Feedback**: Real-time rendering of game state and metrics
 
----
+## 🛠️ Development
 
-## Extending PHICODE
+This project includes a VS Code extension for PHICODE development:
+[GitHub Repository](https://github.com/Varietyz/phicode-vscode-extension)
 
-* You can add new symbols and mappings in `mapping.py`.
-* The importer transparently handles decoding; no changes needed elsewhere.
-* The runtime can be customized to support additional features or error handling.
+1. **Install the Extension**:
+   - Open VS Code
+   - Go to Extensions (Ctrl+Shift+X)
+   - Click "Install from VSIX" and select `phicode-extension.vsix`
 
----
+2. **Features**:
+   - Syntax highlighting for `.φ` files
+   - PHICODE ⇄ Python conversion
+   - Symbol autocompletion
+   - Breadcrumb navigation
+   - Code formatting
+   - Linting and error checking
+   - Symbolic info tooltips
+   - Copilot support
 
-## 📂 Current Project Structure
+3. **Usage**:
+   - Right-click any `.φ` file for conversion options
+   - Use command palette `(Ctrl+Shift+P)` for:
+		- Convert Python to PHICODE: `phicode.convertPythonToPhicode`
+			- Transforms .py files to .φ with symbolic operators
+		- Convert PHICODE to Python: `phicode.convertPhicodeToPython`
+			- Reverts .φ files back to standard Python syntax
+
+
+## 📂 Project Structure
 ```
 ├─ 📂 (φ)
 │   ├─ 📂 ai
-│   │   ├─ 📄 agent_plugin.φ
-│   │   ├─ 📄 connector.φ
-│   │   ├─ 📄 dqn_agent.φ
+│   │   ├─ 🔱 agent_plugin.φ
+│   │   ├─ 🔱 connector.φ
+│   │   ├─ 🔱 dqn_agent.φ
 │   │   ├─ 📂 game
-│   │   │   ├─ 📄 enhancements.φ
-│   │   │   ├─ 📄 penalties.φ
-│   │   │   └─ 📄 rewards.φ
-│   │   ├─ 📄 simple_nn.φ
-│   │   └─ 📄 __init__.φ
+│   │   │   ├─ 🔱 enhancements.φ
+│   │   │   ├─ 🔱 penalties.φ
+│   │   │   └─ 🔱 rewards.φ
+│   │   ├─ 🔱 simple_nn.φ
+│   │   └─ 🔱 __init__.φ
 │   ├─ 📂 common
-│   │   ├─ 📄 utils.φ
-│   │   └─ 📄 __init__.φ
-│   ├─ 📄 config.φ
+│   │   ├─ 🔱 utils.φ
+│   │   └─ 🔱 __init__.φ
+│   ├─ 🔱 config.φ
 │   ├─ 📂 core
-│   │   ├─ 📄 food.φ
-│   │   ├─ 📄 score.φ
-│   │   ├─ 📄 snake.φ
-│   │   └─ 📄 __init__.φ
+│   │   ├─ 🔱 food.φ
+│   │   ├─ 🔱 score.φ
+│   │   ├─ 🔱 snake.φ
+│   │   └─ 🔱 __init__.φ
 │   ├─ 📂 data
-│   │   ├─ 📄 dqn_model.agent
+│   │   ├─ 🤖 dqn_model.agent
 │   │   ├─ 🔧 dqn_model.json
 │   │   └─ 🔧 score.json
-│   ├─ 📄 main.φ
+│   ├─ 🔱 main.φ
 │   └─ 📂 ui
-│       ├─ 📄 bonus_manager.φ
-│       ├─ 📄 controller.φ
-│       ├─ 📄 input_handler.φ
-│       ├─ 📄 metrics.φ
-│       ├─ 📄 renderer.φ
-│       └─ 📄 __init__.φ
+│       ├─ 🔱 bonus_manager.φ
+│       ├─ 🔱 controller.φ
+│       ├─ 🔱 input_handler.φ
+│       ├─ 🔱 metrics.φ
+│       ├─ 🔱 renderer.φ
+│       └─ 🔱 __init__.φ
 ├─ ⚖️ LICENSE
-├─ 📄 phicode-1.1.0.vsix
-├─ 📂 phicode_engine
-│   ├─ 📂 core
-│   │   └─ 🐍 phicode_importer.py
-│   ├─ 📂 map
-│   │   ├─ 🐍 mapping.py
-│   │   ├─ 🐍 __py→φ__.py
-│   │   └─ 🐍 __φ→py__.py
-│   ├─ 🐍 run.py
-│   └─ 🐍 __init__.py
+├─ 🖼️ logo.png
+├─ 🔌 phicode-extension.vsix
 └─ 📘 README.md
 ```
